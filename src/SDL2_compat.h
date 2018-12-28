@@ -100,7 +100,14 @@ void SDL_DestroyTexture(SDL_Texture * texture);
 void SDL_DestroyRenderer(SDL_Renderer * renderer);
 int SDL_RenderClear(SDL_Renderer * renderer);
 int SDL_RenderCopy(SDL_Renderer * renderer, SDL_Texture * texture, const SDL_Rect * srcrect, const SDL_Rect * dstrect);
+#ifdef ZIPIT_Z2
+// Make sure to draw certain frames (if they're followed by a getkey loop with no refresh)
+void Set_SDL_FrameSkipTicks(Uint32 ticks); // Pass ticks=0 to clear the frame skip counter.  
+// angle is never used, so avoid float exceptions on ARM OABI just to pass 0 as a double
+int SDL_RenderCopyEx(SDL_Renderer * renderer, SDL_Texture * texture, const SDL_Rect * srcrect, const SDL_Rect * dstrect, const int angle, const SDL_Point *center, const SDL_RendererFlip flip);
+#else
 int SDL_RenderCopyEx(SDL_Renderer * renderer, SDL_Texture * texture, const SDL_Rect * srcrect, const SDL_Rect * dstrect, const double angle, const SDL_Point *center, const SDL_RendererFlip flip);
+#endif
 void SDL_RenderPresent(SDL_Renderer * renderer);
 int SDL_RenderSetLogicalSize(SDL_Renderer * renderer, int w, int h);
 int SDL_SetRenderDrawColor(SDL_Renderer * renderer, Uint8 r, Uint8 g, Uint8 b, Uint8 a);

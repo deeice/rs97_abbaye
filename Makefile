@@ -11,6 +11,8 @@ CFLAGS?=	-O2 -finline-functions -funswitch-loops -fgcse-after-reload -fpredictiv
 DATADIR= "\"./\""
 endif
 
+LIBS=		`sdl-config --libs` -lSDL_image -lSDL_mixer -lm
+
 ifeq ($(PLATFORM), rpi1)
 CFLAGS=		-O2 -march=armv6j -mfpu=vfp -mfloat-abi=hard
 DATADIR= "\"./\""
@@ -26,11 +28,23 @@ CFLAGS=	-fprofile-use=pgo	-Ofast -march=mips32 -mtune=mips32 -fomit-frame-pointe
 DATADIR= "\"./\""
 endif
 
+ifeq ($(PLATFORM), z2)
+CFLAGS=	-O2 -std=c99 -DZIPIT_Z2 -fomit-frame-pointer -march=armv5te -mtune=xscale
+DATADIR= "\"./\""
+endif
+
+ifeq ($(PLATFORM), iz2s)
+PREFIX=/usr/local
+CFLAGS=	-O2 -std=c99 -DZIPIT_Z2 -fomit-frame-pointer -march=armv5te -mtune=xscale -I/usr/include -I/usr/local/include -L/usr/lib -L/usr/local/lib
+LDFLAGS=-L /usr/lib -L/usr/local/lib
+DATADIR= "\"./\""
+LIBS=-pthread `sdl-config --libs` -pthread -lSDL_image -lSDL_mixer
+endif
+
 DATADIR?="\"$(PREFIX)/share/abbayev2\""
 LDFLAGS?=	-Wl,-z,relro
 
 CFLAGS+=	-DUSE_SDL2_COMPAT -I./src `sdl-config --cflags` -DDATADIR=$(DATADIR)
-LIBS=		`sdl-config --libs` -lSDL_image -lSDL_mixer -lm
 
 PROG=		abbayev2
 SRCS=		src/drawing.c \

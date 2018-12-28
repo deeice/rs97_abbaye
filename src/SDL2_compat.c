@@ -1,5 +1,16 @@
 #include "SDL2_compat.h"
 
+#ifdef ZIPIT_Z2
+static Uint32 skipticks = 0;
+
+// Pass ticks=0 to clear the frame skip counter.
+// Might never use anything but 0, but pass ticks as an arg for flexibility.
+void Set_SDL_FrameSkipTicks(Uint32 ticks) 
+{
+  skipticks = ticks;
+}
+#endif
+
 SDL_Renderer* SDL_CreateRenderer(SDL_Window * window, int index, Uint32 flags) {
   SDL_Renderer* renderer = calloc(sizeof(SDL_Renderer), 1);
   renderer->window = window;
@@ -27,10 +38,18 @@ void SDL_DestroyRenderer(SDL_Renderer * renderer) {
 }
 
 int SDL_RenderClear(SDL_Renderer * renderer) {
+#ifdef ZIPIT_Z2
+  if (skipticks >= 16) // Skip enough frames to catch up, if needed.
+    return 0;
+#endif  
   return SDL_FillRect(renderer->surface, NULL, renderer->color);
 }
 
 int SDL_RenderCopy(SDL_Renderer * renderer, SDL_Texture * texture, const SDL_Rect * srcrect, const SDL_Rect * dstrect) {
+#ifdef ZIPIT_Z2
+  if (skipticks >= 16) // Skip enough frames to catch up, if needed.
+    return 0;
+#endif  
   return SDL_BlitSurface(texture->surface, (SDL_Rect*) srcrect, renderer->surface, (SDL_Rect*) dstrect);
 }
 
@@ -155,24 +174,31 @@ static void scaled_blit_alpha(SDL_Surface* source, const SDL_Rect* srect, SDL_Su
   }
 }
 
+#ifdef ZIPIT_Z2
+// angle is never used, so avoid float exceptions just to pass a 0 via a fake double register.
+int SDL_RenderCopyEx(SDL_Renderer * renderer, SDL_Texture * texture, const SDL_Rect * srcrect, const SDL_Rect * dstrect, const int angle, const SDL_Point *center, const SDL_RendererFlip flip) {
+  if (skipticks >= 16) // Skip enough frames to catch up, if needed.
+    return 0;
+#else
 int SDL_RenderCopyEx(SDL_Renderer * renderer, SDL_Texture * texture, const SDL_Rect * srcrect, const SDL_Rect * dstrect, const double angle, const SDL_Point *center, const SDL_RendererFlip flip) {
   if(angle != 0 || center != NULL) {
     fprintf(stderr, "WARNING: rotated blit not supported\n");
     return -1;
   }
+#endif
   if (flip == 0 && srcrect != NULL && dstrect != NULL && srcrect->w == dstrect->w && srcrect->h == dstrect->h) return SDL_BlitSurface(texture->surface, (SDL_Rect*) srcrect, renderer->surface, (SDL_Rect*) dstrect);
   scaled_blit_alpha(texture->surface, srcrect, renderer->surface, dstrect, flip & SDL_FLIP_HORIZONTAL, flip & SDL_FLIP_VERTICAL);
   return 0;
 }
 
-void fast_scale_up(SDL_Surface* source, SDL_Surface* dest) {
+int fast_scale_up(SDL_Surface* source, SDL_Surface* dest) {
   if(dest->w < source->w) {
-    fprintf(stderr, "ERROR: fast_scale_up expected dest->w > source->w\n");
-    return;
+    //fprintf(stderr, "ERROR: fast_scale_up expected dest->w > source->w\n");
+    return 0;
   }
   if(dest->format->BytesPerPixel != 2 || source->format->BytesPerPixel != 2) {
-    fprintf(stderr, "ERROR: fast_scale_up only supports surfaces with 2 bytes per pixel\n");
-    return;
+    //fprintf(stderr, "ERROR: fast_scale_up only supports surfaces with 2 bytes per pixel\n");
+    return 0;
   }
   Uint16* spixels = (Uint16*) source->pixels;
   Uint16* dpixels = (Uint16*) dest->pixels;
@@ -187,13 +213,22 @@ void fast_scale_up(SDL_Surface* source, SDL_Surface* dest) {
       memcpy(dpixels + j * dest->w, dpixels + (j - 1) * dest->w, dest->w * 2);
     }
   }
+  return 1;
 }
 
 void SDL_RenderPresent(SDL_Renderer * renderer) {
   SDL_Rect srect = {0, 0, renderer->w, renderer->h};
+#ifdef ZIPIT_Z2
+  // Skip enough frames to catch up, if needed.
+  if (skipticks >= 16) {
+    skipticks -= 16;
+    return;
+  }
+#endif  
   if(renderer->scale_mode == 1) {
     SDL_Rect drect = {0, 0, renderer->window->w, renderer->window->h};
-    fast_scale_up(renderer->surface, renderer->window->screen);
+    if (!fast_scale_up(renderer->surface, renderer->window->screen))
+      scaled_blit_alpha(renderer->surface, &srect, renderer->window->screen, &drect, 0, 0);
   } else {
     SDL_Rect drect = {(renderer->window->w - renderer->w) / 2, (renderer->window->h - renderer->h) / 2, renderer->w, renderer->h};
     SDL_FillRect(renderer->window->screen, NULL, SDL_MapRGB(renderer->window->screen->format, 0, 0, 0));
@@ -204,6 +239,10 @@ void SDL_RenderPresent(SDL_Renderer * renderer) {
   if(ticks - renderer->last_frame_ticks < 1000 / 60) {
     SDL_Delay(1000 / 60 - (ticks - renderer->last_frame_ticks));
   }
+#ifdef ZIPIT_Z2
+  else // We went over our alloted time.  So skip some subsequent frames.
+    skipticks += ticks - renderer->last_frame_ticks - 16;
+#endif
   renderer->last_frame_ticks = ticks;
 }
 

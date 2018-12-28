@@ -239,6 +239,9 @@ void showparchment (SDL_Renderer *renderer,uint *parchment) {
 
 	SDL_Texture *yparchment = NULL;
 
+#ifdef ZIPIT_Z2
+	Set_SDL_FrameSkipTicks(0); // Ensure we draw this frame.
+#endif
 	switch (*parchment) {
 		case 3: yparchment = IMG_LoadTexture(renderer, DATADIR "/graphics/parchment1.png");
 						break;
@@ -262,6 +265,9 @@ void showparchment (SDL_Renderer *renderer,uint *parchment) {
 
 void redparchment (SDL_Renderer *renderer,struct hero *jean) {
 
+#ifdef ZIPIT_Z2
+	Set_SDL_FrameSkipTicks(0); // Ensure we draw this frame.
+#endif
 	SDL_Texture *rparchment = IMG_LoadTexture(renderer, DATADIR "/graphics/redparch.png");
 	SDL_RenderCopy(renderer,rparchment,NULL,NULL);
 	SDL_DestroyTexture(rparchment);
@@ -272,6 +278,9 @@ void redparchment (SDL_Renderer *renderer,struct hero *jean) {
 
 void blueparchment (SDL_Renderer *renderer,struct hero *jean) {
 
+#ifdef ZIPIT_Z2
+	Set_SDL_FrameSkipTicks(0); // Ensure we draw this frame.
+#endif
 	SDL_Texture *bparchment = IMG_LoadTexture(renderer, DATADIR "/graphics/blueparch.png");
 	SDL_RenderCopy(renderer,bparchment,NULL,NULL);
 	SDL_DestroyTexture(bparchment);
